@@ -1,0 +1,6 @@
+[server]
+# Disable module-path introspection used by hot-reload.
+# Without this, Streamlit walks every transformers sub-module on startup and
+# logs dozens of ModuleNotFoundError warnings for vision models that need
+# torchvision (SAM, RT-DETR, YOLOS, …) — none of which this app uses.
+fileWatcherType = "none"
