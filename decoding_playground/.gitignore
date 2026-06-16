@@ -1,0 +1,12 @@
+# venv internals (this project's venv was created directly in this folder)
+Include/
+Lib/
+Scripts/
+etc/
+share/
+pyvenv.cfg
+__pycache__/
+*.pyc
+
+# secrets
+.env
