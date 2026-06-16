@@ -12,6 +12,10 @@ _model: GPT2LMHeadModel | None = None
 
 
 # loads GPT-2 once and caches it on the module
+'''
+This function loads GPT-2 and its tokenizer. The tokenizer converts text into tokens that GPT-2 understands. The model is loaded only once and then cached, which improves efficiency.
+'''
+
 def load_model() -> tuple[GPT2Tokenizer, GPT2LMHeadModel]:
     global _tokenizer, _model
     if _tokenizer is None:
@@ -21,16 +25,22 @@ def load_model() -> tuple[GPT2Tokenizer, GPT2LMHeadModel]:
     return _tokenizer, _model
 
 
+'''
+This function takes input text and performs one forward pass through GPT-2. It returns logits, which are raw scores for every possible next token.
+'''
+
 # runs one forward pass, returns raw logits for the next token
 def get_next_token_logits(text: str) -> torch.Tensor:
     tokenizer, model = load_model()
     input_ids = tokenizer.encode(text, return_tensors="pt")
     with torch.no_grad():
         outputs = model(input_ids)
-    return outputs.logits[0, -1, :]
+    return outputs.logits[0, -1, :] #This line extracts the prediction for the next token.
 
 
 # applies one decoding strategy to raw logits; "beam" here is a single-step preview, real beam search runs in _generate_beam
+
+# This is the core function of the project. It implements six decoding strategies
 def apply_strategy(
     logits: torch.Tensor,
     strategy: str,
@@ -41,6 +51,8 @@ def apply_strategy(
 ) -> tuple[torch.Tensor, torch.Tensor, dict]:
     vocab_size = logits.shape[0]
 
+
+   # Greedy always selects the highest-probability token. It is simple but often generates repetitive text.
     if strategy == "greedy":
         probs = F.softmax(logits, dim=-1)
         best_idx = int(probs.argmax())

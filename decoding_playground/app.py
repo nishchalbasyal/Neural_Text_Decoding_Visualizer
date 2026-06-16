@@ -3,7 +3,7 @@
 import streamlit as st
 import plotly.graph_objects as go
 
-from decoder import generate, load_model, repetition_score, step_once
+from decoder import load_model, repetition_score, step_once
 
 st.set_page_config(page_title="Neural Decoding Playground", layout="wide")
 
@@ -25,8 +25,6 @@ DEFAULT_PROMPT = (
 STRATEGY_LABELS = {
     "greedy": "Greedy",
     "beam": "Beam Search",
-    "pure": "Pure Sampling",
-    "temperature": "Temperature Sampling",
     "topk": "Top-k Sampling",
     "nucleus": "Nucleus (Top-p)",
 }
@@ -37,10 +35,6 @@ HOW_IT_WORKS_MD = """
 **Greedy** — always picks the top token. Fast, but repeats itself a lot.
 
 **Beam Search** — tracks the best few sequences at once. Better than greedy, still repeats on long text.
-
-**Pure Sampling** — samples from the whole vocabulary. No repeats, but sometimes picks weird tokens.
-
-**Temperature** — scales the logits before sampling. Lower = safer picks, higher = more random.
 
 **Top-k** — only samples from the k best tokens. Simple, but k doesn't adapt to the model's confidence.
 
@@ -144,10 +138,6 @@ if "steps" not in st.session_state:
     st.session_state.steps = []
 if "current_text" not in st.session_state:
     st.session_state.current_text = ""
-if "mode" not in st.session_state:
-    st.session_state.mode = None
-if "replay_idx" not in st.session_state:
-    st.session_state.replay_idx = 0
 
 st.markdown(
     "# Neural Text Decoding Playground\n"
@@ -179,12 +169,7 @@ with left:
 
     # only show the slider for the chosen strategy
     temperature, k, p, beam_width = 1.0, 50, 0.9, 4
-    if strategy == "temperature":
-        temperature = st.slider(
-            "Temperature (T)", min_value=0.1, max_value=2.0, value=1.0, step=0.05,
-            help="T<1 sharpens, T>1 flattens the distribution", key="temp_slider",
-        )
-    elif strategy == "topk":
+    if strategy == "topk":
         k = st.slider(
             "Top-k (k)", min_value=1, max_value=500, value=50, step=1,
             help="Number of tokens to keep", key="k_slider",
@@ -200,20 +185,15 @@ with left:
             help="Number of parallel sequences to track", key="beam_slider",
         )
 
-    n_tokens = st.slider(
-        "Tokens to generate (Generate N mode)",
-        min_value=1, max_value=100, value=30, step=1,
-    )
     seed = st.number_input(
         "Random seed",
         value=42, step=1, format="%d",
         help="Fix the seed for reproducible sampling",
     )
 
-    btn_col1, btn_col2, btn_col3 = st.columns(3)
+    btn_col1, btn_col2 = st.columns(2)
     step_clicked = btn_col1.button("Step Once", type="primary", use_container_width=True)
-    gen_clicked = btn_col2.button("Generate N", use_container_width=True)
-    reset_clicked = btn_col3.button("Reset", use_container_width=True)
+    reset_clicked = btn_col2.button("Reset", use_container_width=True)
 
     if step_clicked:
         context = st.session_state.current_text or prompt_box.strip() or DEFAULT_PROMPT
@@ -224,41 +204,10 @@ with left:
 
         st.session_state.current_text = context + token_str
         st.session_state.steps.append(step_data)
-        st.session_state.mode = "step"
-        st.session_state.replay_idx = len(st.session_state.steps) - 1
-
-    if gen_clicked:
-        context = prompt_box.strip() or DEFAULT_PROMPT
-        params = collect_params(temperature, k, p, beam_width)
-
-        final_text, steps = generate(
-            context, strategy, params,
-            n_tokens=int(n_tokens), seed=int(seed),
-        )
-
-        st.session_state.current_text = final_text
-        st.session_state.steps = steps
-        st.session_state.mode = "generate"
-        st.session_state.replay_idx = max(len(steps) - 1, 0)
 
     if reset_clicked:
         st.session_state.current_text = ""
         st.session_state.steps = []
-        st.session_state.mode = None
-        st.session_state.replay_idx = 0
-
-    # replay slider only shows up after Generate N
-    steps = st.session_state.steps
-    if st.session_state.mode == "generate" and len(steps) > 1:
-        replay_idx = st.slider(
-            f"Replay step  (0 – {len(steps) - 1})",
-            min_value=0, max_value=len(steps) - 1,
-            value=min(st.session_state.replay_idx, len(steps) - 1),
-            step=1,
-            help="Drag to re-examine any step after Generate N",
-            key="replay_slider",
-        )
-        st.session_state.replay_idx = replay_idx
 
     with st.expander("How each strategy works"):
         st.markdown(HOW_IT_WORKS_MD)
@@ -267,10 +216,7 @@ with left:
 with right:
 
     steps = st.session_state.steps
-    if st.session_state.mode == "generate" and steps:
-        display_step = steps[min(st.session_state.replay_idx, len(steps) - 1)]
-    else:
-        display_step = steps[-1] if steps else None
+    display_step = steps[-1] if steps else None
 
     display_text = st.session_state.current_text or prompt_box
 

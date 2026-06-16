@@ -13,12 +13,11 @@ Generate text **one token at a time** with GPT-2 (124M) and see *exactly* why ea
 
 ## ✨ Features
 
-- **Six decoding strategies** — Greedy, Beam Search, Pure Sampling, Temperature Sampling, Top-k, and Nucleus (Top-p) — all switchable live.
+- **Four decoding strategies** — Greedy, Beam Search, Top-k, and Nucleus (Top-p) — all switchable live.
 - **Step-by-step generation** — click **Step Once** to watch a single token get chosen, with a color-coded bar chart of the top-15 candidates.
   - 🟩 GREEN = kept by the strategy's filter
   - 🟥 RED = cut by the filter
   - 🟨 GOLD = the token that was actually sampled
-- **Batch generation + replay** — click **Generate N** to produce many tokens at once, then drag the **Replay step** slider to scrub back through any step of that run.
 - **PEAKED / FLAT distribution badge** — a plain-English read on how confident the model is at each step, and why fixed-k strategies struggle where nucleus sampling adapts.
 - **Repetition score** — a live bigram-repetition metric that quantifies the degenerate, looping text that greedy/beam decoding tends to produce.
 - **Reproducible runs** — a fixed random seed makes every sampling run repeatable.
@@ -29,8 +28,6 @@ Generate text **one token at a time** with GPT-2 (124M) and see *exactly* why ea
 |---|---|---|
 | **Greedy** | Always picks the single highest-probability token. | Fast & deterministic, but repeats itself a lot. |
 | **Beam Search** | Tracks the best *b* sequences in parallel. | Better than greedy, but still degenerates on long, open-ended text. |
-| **Pure Sampling** | Samples from the entire vocabulary as-is. | No repetition, but occasionally picks incoherent tokens from the tail. |
-| **Temperature** | Scales logits by `1/T` before sampling. | `T<1` sharpens (safer), `T>1` flattens (more random) — doesn't fix the tail-mass problem. |
 | **Top-k** | Samples only from the *k* highest-probability tokens. | Simple, but a fixed *k* doesn't adapt to how confident the model is. |
 | **Nucleus (Top-p)** | Keeps the *smallest* set of tokens whose cumulative probability ≥ *p*. | Adapts: shrinks when the model is confident, grows when it's uncertain — the paper's main contribution. |
 
@@ -94,10 +91,9 @@ Runs a quick smoke test of the decoding logic with no browser involved.
 ## 🕹️ Usage
 
 1. Type a prompt (or keep the default unicorn story).
-2. Pick a **Decoding Strategy** — the relevant slider (temperature / k / p / beam width) appears automatically.
+2. Pick a **Decoding Strategy** — the relevant slider (k / p / beam width) appears automatically.
 3. Click **Step Once** to generate a single token and inspect the chart, badge, and explanation.
-4. Click **Generate N** to generate several tokens at once, then drag **Replay step** to revisit any step.
-5. Click **Reset** to clear the run and start over.
+4. Click **Reset** to clear the run and start over.
 
 ## 🧰 Tech stack
 
