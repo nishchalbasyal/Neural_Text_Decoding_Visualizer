@@ -75,23 +75,6 @@ def apply_strategy(
         probs_after = probs_after / (mass + 1e-12)
         info = {"kept_count": actual_b, "cumulative_mass": mass}
 
-    # elif strategy == "pure":
-    #     probs = F.softmax(logits, dim=-1)
-    #     kept_mask = torch.ones(vocab_size, dtype=torch.bool)
-    #     probs_after = probs
-    #     info = {"kept_count": vocab_size, "cumulative_mass": 1.0}
-
-    # elif strategy == "temperature":
-    #     scaled = logits / max(temperature, 1e-8)
-    #     probs = F.softmax(scaled, dim=-1)
-    #     kept_mask = torch.ones(vocab_size, dtype=torch.bool)
-    #     probs_after = probs
-    #     info = {
-    #         "kept_count": vocab_size,
-    #         "cumulative_mass": 1.0,
-    #         "temperature": temperature,
-    #     }
-
     elif strategy == "topk":
         probs = F.softmax(logits, dim=-1)
         actual_k = min(k, vocab_size)
@@ -103,10 +86,22 @@ def apply_strategy(
         probs_after = probs_after / (mass + 1e-12)
         info = {"kept_count": actual_k, "cumulative_mass": mass}
 
+
+ # "Nucleus Sampling, also called Top-P Sampling, is the main contribution of the Holtzman paper."
     elif strategy == "nucleus":
         probs = F.softmax(logits, dim=-1)
         sorted_probs, sorted_indices = probs.sort(descending=True)
+        
+        ''' 
+        The code keeps adding token probabilities until the cumulative probability 
+        reaches P,
+        such as 90 percent.
+        This creates a dynamic candidate set and generally produces more natural text. 
+        
+        '''
         cum_probs = sorted_probs.cumsum(dim=0)
+        
+        
         past_cutoff = (cum_probs - sorted_probs) >= p
         sorted_probs[past_cutoff] = 0.0
         kept_mask = torch.zeros(vocab_size, dtype=torch.bool)
@@ -127,6 +122,10 @@ def apply_strategy(
 
 
 # picks a token id from the filtered distribution; greedy uses argmax, everything else samples
+
+'''
+After filtering the probability distribution, this function chooses the actual token.
+'''
 def pick_token(
     probs_after: torch.Tensor,
     strategy: str,
@@ -134,8 +133,8 @@ def pick_token(
 ) -> int:
     torch.manual_seed(seed)
     if strategy == "greedy":
-        return int(probs_after.argmax())
-    return int(torch.multinomial(probs_after, num_samples=1))
+        return int(probs_after.argmax()) # Greedy uses argmax, which selects the highest probability token.
+    return int(torch.multinomial(probs_after, num_samples=1))  # Other strategies sample from the probability distribution.
 
 
 # labels a distribution PEAKED or FLAT from top-token probability / entropy
@@ -153,6 +152,10 @@ def classify_distribution(probs: torch.Tensor) -> tuple[str, float]:
 
 
 # generates one next token and builds the step_data dict the UI renders
+'''
+ All function Calling step_once will return the chosen token and a dictionary containing detailed information about the decoding step, such as the candidate tokens, their probabilities, how many tokens were kept after filtering, and an explanation of why the chosen token was selected based on the strategy used.
+'''
+
 def step_once(
     text: str,
     strategy: str,
@@ -163,8 +166,10 @@ def step_once(
     if not text.strip():
         text = "The"
 
+    # Predict
     logits = get_next_token_logits(text)
 
+    # Apply strategy(Filter)
     probs_after, kept_mask, info = apply_strategy(
         logits,
         strategy,
@@ -174,7 +179,10 @@ def step_once(
         beam_width=params.get("beam_width", 4),
     )
 
+    # Pick top token
     token_id = pick_token(probs_after, strategy, seed)
+    
+    
     token_str = tokenizer.decode([token_id])
 
     raw_probs = F.softmax(logits, dim=-1)
@@ -261,6 +269,12 @@ def _build_explanation(
 
 
 # generates n_tokens tokens by calling step_once in a loop (beam search is handled separately)
+
+'''
+This function repeatedly calls step_once and keeps adding new tokens until the 
+desired text length is reached.
+'''
+
 def generate(
     prompt: str,
     strategy: str,
@@ -345,13 +359,15 @@ def _generate_beam(
 
 
 # fraction of repeated n-grams; higher means more degenerate text
+
+'''This function measures how repetitive the generated text is'''
 def repetition_score(text: str, n: int = 2) -> float:
     tokenizer, _ = load_model()
     ids = tokenizer.encode(text)
     if len(ids) < n:
         return 0.0
     ngrams = [tuple(ids[i: i + n]) for i in range(len(ids) - n + 1)]
-    counts = Counter(ngrams)
+    counts = Counter(ngrams) # It counts repeated n-grams. Higher scores indicate more degeneration and repetition.
     repeated = sum(1 for c in counts.values() if c > 1)
     return repeated / len(counts) if counts else 0.0
 
