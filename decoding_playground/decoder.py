@@ -40,7 +40,7 @@ def get_next_token_logits(text: str) -> torch.Tensor:
 
 # applies one decoding strategy to raw logits; "beam" here is a single-step preview, real beam search runs in _generate_beam
 
-# This is the core function of the project. It implements six decoding strategies
+# This is the core function of the project. It implements 4 decoding strategies
 def apply_strategy(
     logits: torch.Tensor,
     strategy: str,
@@ -75,22 +75,22 @@ def apply_strategy(
         probs_after = probs_after / (mass + 1e-12)
         info = {"kept_count": actual_b, "cumulative_mass": mass}
 
-    elif strategy == "pure":
-        probs = F.softmax(logits, dim=-1)
-        kept_mask = torch.ones(vocab_size, dtype=torch.bool)
-        probs_after = probs
-        info = {"kept_count": vocab_size, "cumulative_mass": 1.0}
+    # elif strategy == "pure":
+    #     probs = F.softmax(logits, dim=-1)
+    #     kept_mask = torch.ones(vocab_size, dtype=torch.bool)
+    #     probs_after = probs
+    #     info = {"kept_count": vocab_size, "cumulative_mass": 1.0}
 
-    elif strategy == "temperature":
-        scaled = logits / max(temperature, 1e-8)
-        probs = F.softmax(scaled, dim=-1)
-        kept_mask = torch.ones(vocab_size, dtype=torch.bool)
-        probs_after = probs
-        info = {
-            "kept_count": vocab_size,
-            "cumulative_mass": 1.0,
-            "temperature": temperature,
-        }
+    # elif strategy == "temperature":
+    #     scaled = logits / max(temperature, 1e-8)
+    #     probs = F.softmax(scaled, dim=-1)
+    #     kept_mask = torch.ones(vocab_size, dtype=torch.bool)
+    #     probs_after = probs
+    #     info = {
+    #         "kept_count": vocab_size,
+    #         "cumulative_mass": 1.0,
+    #         "temperature": temperature,
+    #     }
 
     elif strategy == "topk":
         probs = F.softmax(logits, dim=-1)
